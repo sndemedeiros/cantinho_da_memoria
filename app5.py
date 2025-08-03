@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
-import pyttsx3
 from datetime import datetime, date
 import uuid
 from PIL import Image
 import base64
 import os
+import streamlit.components.v1 as components
 
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -89,22 +89,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-# --- Configuração da Voz ---
-if "voz_ativada" not in st.session_state:
-    st.session_state.voz_ativada = True
-
-def falar(texto):
-    """
-    Função de fala aprimorada, agora com verificação do estado da voz.
-    """
-    if st.session_state.voz_ativada:
-        try:
-            engine = pyttsx3.init()
-            engine.say(texto)
-            engine.runAndWait()
-        except Exception as e:
-            print(f"Erro na função de fala: {e}")
 
 # --- Firebase ---
 if not firebase_admin._apps:
@@ -200,7 +184,6 @@ st.markdown("_Um espaço seguro para suas lembranças._")
 # --- Menu de Navegação ---
 st.sidebar.success(f"Você está conectado(a). ID: {st.session_state['user_id'][:8]}...")
 st.sidebar.markdown("---")
-st.sidebar.toggle("🔊 Ativar/Desativar Voz", key="voz_ativada")
 
 menu = st.sidebar.radio(
     "O que você gostaria de fazer hoje?", 
@@ -220,16 +203,14 @@ if st.sidebar.button("🚪 Sair do Cantinho"):
     st.success("Você saiu com sucesso!")
     st.rerun()
 
-# --- Logo no final da barra lateral (CORRIGIDO) ---
+# --- Logo no final da barra lateral ---
 st.sidebar.markdown("---")
 try:
-    # Lê a imagem em bytes e a converte para base64 para embedar diretamente no HTML
     image_path = "logo_suzika.png"
     if os.path.exists(image_path):
         with open(image_path, "rb") as image_file:
             encoded_string = base64.b64encode(image_file.read()).decode()
         
-        # O HTML e CSS garantem que a imagem seja centralizada de forma confiável
         st.sidebar.markdown(
             f"""
             <div style="display: flex; justify-content: center; margin-bottom: 10px;">
@@ -259,7 +240,6 @@ if menu == "📅 Lembretes":
     if st.button("➕ Salvar Lembrete"):
         if not tarefa:
             st.warning("Digite a tarefa.")
-            falar("Por favor, digite a tarefa para poder salvar.")
         else:
             try:
                 datetime.strptime(data_lembrete_str, "%d/%m/%Y")
@@ -274,14 +254,11 @@ if menu == "📅 Lembretes":
                     "CriadoEm": firestore.SERVER_TIMESTAMP
                 })
                 st.success("Lembrete salvo!")
-                falar(f"Lembrete salvo com sucesso. A tarefa é: {tarefa}.")
                 st.rerun()
             except ValueError:
                 st.error("❌ Por favor, use os formatos corretos de data (DD/MM/AAAA) e hora (HH:MM).")
-                falar("Erro. Por favor, use os formatos corretos de data e hora.")
             except Exception as e:
                 st.error(f"Erro: {e}")
-                falar("Houve um erro ao salvar o lembrete.")
 
     st.subheader("🔔 Meus Lembretes")
     try:
@@ -304,18 +281,14 @@ if menu == "📅 Lembretes":
 
             for item in lembretes_ordenados:
                 with st.container(border=True):
-                    col1, col2, col3 = st.columns([5, 1, 1])
+                    col1, col2 = st.columns([5, 1])
                     with col1:
                         data_formatada = item.get("Data", "Sem Data")
                         st.markdown(f"**{item.get('Tarefa', 'Sem Tarefa')}** em **{data_formatada}** às {item.get('Hora', 'Sem Hora')} — {item.get('Repetição', 'Nenhuma')}")
                     with col2:
-                        if st.button("▶️", key=f"ouvir_lembrete_{item['ID']}"):
-                            falar(f"Lembrete: {item.get('Tarefa')}, no dia {data_formatada}, às {item.get('Hora')}.")
-                    with col3:
-                        if st.button("❌", key=f"lembrete_{item['ID']}"):
+                        if col2.button("❌", key=f"lembrete_{item['ID']}"):
                             db.collection("lembretes").document(item['ID']).delete()
                             st.success("Lembrete removido!")
-                            falar("Lembrete removido com sucesso.")
                             st.rerun()
             
             df = pd.DataFrame(lembretes_ordenados)
@@ -331,7 +304,6 @@ if menu == "📅 Lembretes":
 
     except Exception as e:
         st.error(f"Erro ao carregar lembretes: {e}")
-        falar("Houve um erro ao carregar os lembretes.")
 
 # --- Notas ---
 elif menu == "📝 Notas":
@@ -343,7 +315,6 @@ elif menu == "📝 Notas":
     if st.button("➕ Salvar Nota"):
         if not nota:
             st.warning("Digite algo.")
-            falar("Por favor, digite a sua nota para poder salvar.")
         else:
             try:
                 db.collection("notas").add({
@@ -353,11 +324,9 @@ elif menu == "📝 Notas":
                     "CriadoEm": firestore.SERVER_TIMESTAMP
                 })
                 st.success("Nota registrada!")
-                falar("Nota salva com sucesso.")
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao salvar nota: {e}")
-                falar("Houve um erro ao salvar a nota.")
 
     st.subheader("📚 Minhas Notas")
     try:
@@ -369,14 +338,14 @@ elif menu == "📝 Notas":
 
         if notas_com_id:
             for item in notas_com_id:
-                col1, col2 = st.columns([5, 1])
-                with col1:
-                    st.markdown(f"**{item.get('Nota', 'Sem Nota')}** (_{item.get('Data', 'Sem Data')}_)")
-                with col2:
-                    if st.button("❌", key=f"nota_{item['ID']}"):
-                        db.collection("notas").document(item['ID']).delete()
-                        st.rerun()
-                        falar("Nota removida.")
+                with st.container(border=True):
+                    col1, col2 = st.columns([5, 1])
+                    with col1:
+                        st.markdown(f"**{item.get('Nota', 'Sem Nota')}** (_{item.get('Data', 'Sem Data')}_)")
+                    with col2:
+                        if col2.button("❌", key=f"nota_{item['ID']}"):
+                            db.collection("notas").document(item['ID']).delete()
+                            st.rerun()
             
             df = pd.DataFrame(notas_com_id)
             csv = df.to_csv(index=False).encode("utf-8")
@@ -390,7 +359,6 @@ elif menu == "📝 Notas":
             st.info("Nenhuma nota encontrada. Que tal registrar a primeira?")
     except Exception as e:
         st.error(f"Erro ao carregar notas: {e}")
-        falar("Houve um erro ao carregar as notas.")
 
 # --- Memórias ---
 elif menu == "🧺 Minhas Memórias":
@@ -417,7 +385,6 @@ elif menu == "🧺 Minhas Memórias":
             if st.button("➕ Salvar Memória"):
                 if not titulo or not descricao:
                     st.warning("Preencha título e descrição.")
-                    falar("Por favor, preencha o título e a descrição da memória para poder salvar.")
                 else:
                     try:
                         image_url = None
@@ -433,11 +400,9 @@ elif menu == "🧺 Minhas Memórias":
                             "CriadoEm": firestore.SERVER_TIMESTAMP
                         })
                         st.success("🌸 Memória registrada com carinho!")
-                        falar(f"Memória registrada com sucesso: {titulo}")
                         st.rerun()
                     except Exception as e:
                         st.error(f"Erro ao salvar memória: {e}")
-                        falar("Houve um erro ao salvar a memória.")
 
     st.subheader("📖 Memórias guardadas com afeto")
     try:
@@ -459,19 +424,14 @@ elif menu == "🧺 Minhas Memórias":
                 
                 col1, col2 = st.columns([1,1])
                 with col1:
-                    if st.button("❌", key=f"memoria_del_{item['ID']}"):
+                    if col1.button("❌", key=f"memoria_del_{item['ID']}"):
                         try:
                             db.collection("memorias").document(item["ID"]).delete()
                             st.success("Memória removida!")
-                            falar("Memória removida com sucesso.")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Erro ao deletar memória: {e}")
-                            falar("Houve um erro ao deletar a memória.")
-                with col2:
-                    if st.button("▶️", key=f"ouvir_memoria_{doc.id}"):
-                        falar(f"Título: {item.get('Título')}. Descrição: {item.get('Descrição')}")
-
+                
         if minhas_memorias:
             df = pd.DataFrame(minhas_memorias)
             csv = df.to_csv(index=False).encode("utf-8")
@@ -485,7 +445,6 @@ elif menu == "🧺 Minhas Memórias":
             st.info("Nenhuma memória encontrada. Que tal registrar a primeira?")
     except Exception as e:
         st.error(f"Erro ao carregar memórias: {e}")
-        falar("Houve um erro ao carregar as memórias.")
 
 # --- Minha Rotina Diária ---
 elif menu == "📋 Minha Rotina Diária":
@@ -503,14 +462,11 @@ elif menu == "📋 Minha Rotina Diária":
                     "CriadoEm": firestore.SERVER_TIMESTAMP
                 })
                 st.success(f"Tarefa '{nova_tarefa}' adicionada à sua rotina!")
-                falar(f"Tarefa adicionada: {nova_tarefa}.")
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao salvar a tarefa: {e}")
-                falar("Houve um erro ao salvar a tarefa.")
         else:
             st.warning("O campo da tarefa não pode estar vazio.")
-            falar("Por favor, adicione uma tarefa para poder salvar.")
 
     st.subheader("✅ Minhas Tarefas de Hoje")
     try:
@@ -533,14 +489,12 @@ elif menu == "📋 Minha Rotina Diária":
 
                     if concluida_status != item.get("Concluida", False):
                         db.collection("rotinas").document(item['ID']).update({"Concluida": concluida_status})
-                        falar(f"Tarefa {item.get('Tarefa')} marcada como {'concluída' if concluida_status else 'pendente'}.")
                         st.rerun()
-
+                    
                     with col2:
-                        if st.button("❌", key=f"remover_rotina_{item['ID']}"):
+                        if col2.button("❌", key=f"remover_rotina_{item['ID']}"):
                             db.collection("rotinas").document(item['ID']).delete()
                             st.success("Tarefa removida!")
-                            falar("Tarefa removida com sucesso.")
                             st.rerun()
             
             df = pd.DataFrame(rotinas_com_id)
@@ -555,7 +509,6 @@ elif menu == "📋 Minha Rotina Diária":
             st.info("Nenhuma tarefa de rotina encontrada. Adicione a primeira!")
     except Exception as e:
         st.error(f"Erro ao carregar a rotina: {e}")
-        falar("Houve um erro ao carregar a rotina.")
 
 # --- Meus Remédios ---
 elif menu == "⏰ Meus Remédios":
@@ -569,7 +522,6 @@ elif menu == "⏰ Meus Remédios":
     if st.button("➕ Salvar Remédio"):
         if not remedio_nome or not remedio_horario:
             st.warning("Preencha pelo menos o nome e o horário do remédio.")
-            falar("Por favor, preencha o nome e o horário do remédio para poder salvar.")
         else:
             try:
                 db.collection("remedios").add({
@@ -580,11 +532,9 @@ elif menu == "⏰ Meus Remédios":
                     "CriadoEm": firestore.SERVER_TIMESTAMP
                 })
                 st.success(f"Remédio '{remedio_nome}' salvo com sucesso!")
-                falar(f"Remédio {remedio_nome} foi salvo com sucesso.")
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao salvar o remédio: {e}")
-                falar("Houve um erro ao salvar o remédio.")
 
     st.subheader("📋 Meus Remédios Registrados")
     try:
@@ -603,10 +553,9 @@ elif menu == "⏰ Meus Remédios":
                         if item.get("Frequencia"):
                             st.markdown(f"Frequência: _{item.get('Frequencia')}_")
                     with col2:
-                        if st.button("❌", key=f"remedio_{item['ID']}"):
+                        if col2.button("❌", key=f"remedio_{item['ID']}"):
                             db.collection("remedios").document(item['ID']).delete()
                             st.success("Remédio removido!")
-                            falar("Remédio removido com sucesso.")
                             st.rerun()
             
             df = pd.DataFrame(remedios_com_id)
@@ -621,4 +570,3 @@ elif menu == "⏰ Meus Remédios":
             st.info("Nenhum remédio registrado. Adicione o primeiro!")
     except Exception as e:
         st.error(f"Erro ao carregar a lista de remédios: {e}")
-        falar("Houve um erro ao carregar a lista de remédios.")
