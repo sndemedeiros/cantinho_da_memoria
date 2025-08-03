@@ -1,0 +1,18 @@
+# Ignorar a pasta do ambiente virtual
+venv/
+.venv/
+
+# Ignorar o arquivo de segredos do Streamlit
+.streamlit/secrets.toml
+
+# Ignorar cache do Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Ignorar arquivos de dados ou logs que não devem ir para o Git
+*.csv
+*.log
+
+# Ignorar a pasta de histórico gerada por ferramentas
+.history/
